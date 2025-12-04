@@ -13,7 +13,17 @@ Protected regex: ^(main|master|staging|dev|develop)$
 Status mode (lists ALL remote branches with compare status; protected branches are marked)
 
 Branches:
-  master (protected)
+  feat/add-integration-and-plugins (diverged)
+  dev (protected)
+  develop (protected)
+  feat/api-integration (diverged, merged)
+  copilot/sub-pr-38-again (diverged, PR closed)
+  copilot/sub-pr-38-another-one (diverged, merged)
+  copilot/sub-pr-38 (diverged, PR closed)
+  copilot/sub-pr-38-yet-again (diverged, merged)
+  feature/session-recording-refactor (diverged)
+  main (protected)
+  staging (protected)
 
 Tip: add --delete-merged-branch to delete branches shown above (excludes protected; still respects --no-dry-run).
 ```
