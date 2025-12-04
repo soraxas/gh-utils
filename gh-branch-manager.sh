@@ -239,6 +239,42 @@ tmp_remote="${TMPDIR:-/tmp}/remote_branches.$$"
 tmp_report="${TMPDIR:-/tmp}/report.$$"
 trap 'rm -f "$tmp_merged" "$tmp_closed" "$tmp_remote" "$tmp_report"' EXIT
 
+print_branch_line() {
+  name="$1"
+  status="$2"
+  merged="$3"
+  closed="$4"
+
+  # protected branches are kept; ignore other metadata
+  if [ "${status:-}" = "protected" ]; then
+    echo "  $name ${BOLD}${YELLOW}(protected)${RESET}"
+    return
+  fi
+
+  m=""
+  [ "${merged:-0}" = "1" ] && m=", merged"
+  c=""
+  [ "${closed:-0}" = "1" ] && c=", PR closed"
+
+  case "$status" in
+  behind)
+    echo "  $name ${GREEN}(behind$m$c)${RESET}"
+    ;;
+  identical)
+    echo "  $name ${BLUE}(identical$m$c)${RESET}"
+    ;;
+  ahead)
+    echo "  $name ${RED}(ahead$m$c)${RESET}"
+    ;;
+  diverged)
+    echo "  $name ${RED}(diverged$m$c)${RESET}"
+    ;;
+  *)
+    echo "  $name ${YELLOW}(unknown$m$c)${RESET}"
+    ;;
+  esac
+}
+
 # merged PR head branch names (unique)
 gh pr list --state merged --limit 200 \
   --json headRefName \
@@ -256,6 +292,7 @@ gh api "repos/$REPO_FULL/branches?per_page=100" --paginate \
   --jq '.[].name' |
   sort -u >"$tmp_remote"
 
+echo "${BLUE}${BOLD}Branches:${RESET}"
 : >"$tmp_report"
 while IFS= read -r b; do
   [ -n "$b" ] || continue
@@ -264,6 +301,7 @@ while IFS= read -r b; do
   if printf '%s\n' "$b" | grep -Eq "$protected"; then
     # mark with a tag we can color later
     printf '%s\t%s\t0\t0\n' "$b" "protected" >>"$tmp_report"
+    print_branch_line "$b" "protected" 0 0
     continue
   fi
 
@@ -283,53 +321,9 @@ while IFS= read -r b; do
   # Store raw fields (not colored) so coloring is done at print time
   # Fields: name<TAB>status<TAB>merged(0/1)<TAB>closed(0/1)
   printf '%s\t%s\t%s\t%s\n' "$b" "$status" "$merged" "$closed" >>"$tmp_report"
+  print_branch_line "$b" "$status" "$merged" "$closed"
 done <"$tmp_remote"
 
-echo "${BLUE}${BOLD}Branches:${RESET}"
-sort -u "$tmp_report" | while IFS="$(printf '\t')" read -r name status merged closed; do
-  [ -n "$name" ] || continue
-
-  # protected branches are kept; ignore other metadata
-  if [ "${status:-}" = "protected" ]; then
-    # KEEP / never delete
-    echo "  $name ${BOLD}${YELLOW}(protected)${RESET}"
-    continue
-  fi
-
-  m=""
-  [ "${merged:-0}" = "1" ] && m=", merged"
-  c=""
-  [ "${closed:-0}" = "1" ] && c=", PR closed"
-
-  # Color by deletion safety:
-  # - behind      => safest to delete (default is ahead; branch has no unique commits)
-  # - identical   => safe-ish (usually means same tip as default)
-  # - ahead       => unsafe (branch has commits not in default)
-  # - diverged    => unsafe (both have unique commits)
-  # - unknown     => caution
-  case "$status" in
-  behind)
-    # safest delete
-    echo "  $name ${GREEN}(behind$m$c)${RESET}"
-    ;;
-  identical)
-    # usually safe, but less strong than behind
-    echo "  $name ${BLUE}(identical$m$c)${RESET}"
-    ;;
-  ahead)
-    # do NOT delete lightly
-    echo "  $name ${RED}(ahead$m$c)${RESET}"
-    ;;
-  diverged)
-    # do NOT delete lightly
-    echo "  $name ${RED}(diverged$m$c)${RESET}"
-    ;;
-  *)
-    # unknown / error
-    echo "  $name ${YELLOW}(unknown$m$c)${RESET}"
-    ;;
-  esac
-done
 echo
 
 if [ "$delete_merged" -ne 1 ]; then
