@@ -11,7 +11,8 @@ Modes:
   1) No branch args: STATUS mode (default). List all remote branches with (status)
      vs default branch, and annotate protected + merged.
      If --delete-merged-branch is also given, it will delete branches listed
-     (excluding protected) and still respects --no-dry-run.
+     that are identical/behind the default branch (excluding protected) and still
+     respects --no-dry-run. Diverged/ahead/unknown branches are left untouched.
   2) Branch args given: delete exactly those branches (with confirmation prompt).
      --delete-merged-branch cannot be used with branch args.
 
@@ -333,10 +334,12 @@ fi
 
 # delete mode from STATUS list: exclude protected and exclude default branch
 branches_to_delete="$(
-  awk -F'\t' '
-    $2 != "protected" { print $1 }
+  awk -F'\t' -v def="$DEFAULT_BRANCH" '
+    $2 == "protected" { next }
+    $1 == def { next }
+    # Only auto-delete branches fully merged into default (no unique commits).
+    $2 == "identical" || $2 == "behind" { print $1 }
   ' "$tmp_report" |
-    grep -E -v "^${DEFAULT_BRANCH}$" |
     sort -u
 )"
 
