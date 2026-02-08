@@ -1,0 +1,22 @@
+[project]
+name = "gh-branch-manager"
+version = "0.1.0"
+description = "A TUI for managing GitHub branches with Textual"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = [
+    "textual>=0.47.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+gh-branch-manager-tui = "gh_branch_manager.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pyrefly>=0.51.2",
+]

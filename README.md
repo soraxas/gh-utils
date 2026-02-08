@@ -1,5 +1,53 @@
 # Utils for `gh`
 
+## Branch Manager Tools
+
+### TUI (Terminal User Interface) - New! 🎉
+
+A modern, interactive TUI for managing GitHub branches built with [Textual](https://github.com/Textualize/textual).
+
+**Installation:**
+
+```sh
+# Using uv (recommended)
+uv pip install -e .
+
+# Or using pip
+pip install -e .
+```
+
+**Usage:**
+
+```sh
+gh-branch-manager-tui
+```
+
+**Features:**
+
+- 🔄 Auto-fetch and display all remote branches with colorful status
+- ⌨️ **R** - Refresh branch list
+- ⬆️⬇️ **Arrow keys** - Navigate branches
+- **Space** - Toggle branch selection
+- **A** - Auto-select all merged branches (safe to delete)
+- **D** - Delete selected branches (with confirmation)
+- **C** - Clear all selections
+- **/** - Focus filter input to search branches
+- **ESC** - Clear filter and return to table
+- **S** - Cycle through sort modes (name, status, merged)
+- **Q** - Quit
+
+📖 **[See detailed documentation and usage guide →](./USAGE.md)**
+
+Branch statuses:
+
+- 🔵 **identical** - Same as default branch (safe to delete)
+- 🟢 **behind** - Behind default branch (safe to delete)
+- 🟡 **ahead** - Has unique commits
+- 🔴 **diverged** - Has diverged from default branch
+- 🟡 **protected** - Protected branch (cannot delete)
+
+### Shell Script (Legacy)
+
 - `gh-branch-manager.sh`: helps you to quickly view remote branch status, and delete branches (e.g. diverged, closed remote branches)
 
 ```sh
@@ -30,6 +78,7 @@ Tip: add --delete-merged-branch to delete branches shown above (excludes protect
 ```
 
 To delete multiples:
+
 ```sh
 $ gh-branch-manager.sh copilot/sub-pr-38 copilot/sub-pr-38-again copilot/sub-pr-38-another-one copilot/sub-pr-38-yet-again
 
