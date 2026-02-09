@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.scripts]
-gh-branch-manager-tui = "gh_branch_manager.app:main"
+gh-branch-manager = "gh_branch_manager.app:main"
 
 [build-system]
 requires = ["hatchling"]

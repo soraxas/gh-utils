@@ -202,27 +202,27 @@ class BranchManagerApp(App):
     def check_auth_and_refresh(self) -> None:
         """Check authentication and refresh in a background thread."""
         # Check gh authentication
-        if not self.gh_manager.check_gh_auth():
-            self.call_from_thread(
-                self.update_status,
-                "❌ Error: gh CLI is not authenticated. Run 'gh auth login'",
-                error=True,
-            )
-            return
+        # if not self.gh_manager.check_gh_auth():
+        #     self.call_from_thread(
+        #         self.update_status,
+        #         "❌ Error: gh CLI is not authenticated. Run 'gh auth login'",
+        #         error=True,
+        #     )
+        #     return
 
         # Trigger refresh
         self.call_from_thread(self.action_refresh)
 
     def action_refresh(self) -> None:
         """Refresh the branch list."""
-        if self._loading:
-            self.update_status("⏳ Already loading...", error=True)
-            return
+        # if self._loading:
+        #     self.update_status("⏳ Already loading...", error=True)
+        #     return
 
         # Clear existing data
         self.branches_data = []
         self.branches_dict = {}
-        self.selected_branches.clear()
+        # self.selected_branches.clear()
 
         # Start the background fetch
         self.fetch_branches_background()
