@@ -38,6 +38,7 @@ class BranchInfo:
     is_default: bool = False
     ahead_by: Optional[int] = None
     behind_by: Optional[int] = None
+    last_commit_date: Optional[str] = None  # ISO 8601 timestamp
 
     # Legacy properties for backward compatibility
     @property
@@ -63,6 +64,7 @@ class GitHubBranchManager:
         self.branches: List[BranchInfo] = []
         self._merged_branches: Set[str] = set()
         self._closed_pr_branches: Set[str] = set()
+        self._branch_commits: dict[str, str] = {}  # branch_name -> commit_sha
 
     def check_gh_auth(self) -> bool:
         """Check if gh CLI is authenticated."""
@@ -308,7 +310,7 @@ class GitHubBranchManager:
             pass
 
     def _fetch_all_branches(self) -> List[str]:
-        """Fetch all branch names."""
+        """Fetch all branch names and their commit SHAs."""
         try:
             result = subprocess.run(
                 [
@@ -317,18 +319,22 @@ class GitHubBranchManager:
                     f"repos/{self.repo_full}/branches?per_page=100",
                     "--paginate",
                     "--jq",
-                    ".[].name",
+                    '.[] | "\(.name)|\(.commit.sha)"',
                 ],
                 capture_output=True,
                 text=True,
                 timeout=30,
             )
             if result.returncode == 0:
-                return [
-                    line.strip()
-                    for line in result.stdout.strip().split("\n")
-                    if line.strip()
-                ]
+                branch_names = []
+                for line in result.stdout.strip().split("\n"):
+                    if line.strip():
+                        parts = line.strip().split("|")
+                        if len(parts) == 2:
+                            name, sha = parts
+                            branch_names.append(name)
+                            self._branch_commits[name] = sha
+                return branch_names
             return []
         except subprocess.TimeoutExpired:
             return []
@@ -364,6 +370,9 @@ class GitHubBranchManager:
         else:
             status, ahead_by, behind_by = self._get_compare_status(branch_name)
 
+        # Get commit date
+        last_commit_date = self._get_commit_date(branch_name)
+
         return BranchInfo(
             name=branch_name,
             status=status,
@@ -373,7 +382,37 @@ class GitHubBranchManager:
             is_default=is_default,
             ahead_by=ahead_by,
             behind_by=behind_by,
+            last_commit_date=last_commit_date,
         )
+
+    def _get_commit_date(self, branch_name: str) -> Optional[str]:
+        """Get the commit date for a branch.
+
+        Returns:
+            ISO 8601 timestamp string or None if unavailable
+        """
+        commit_sha = self._branch_commits.get(branch_name)
+        if not commit_sha:
+            return None
+
+        try:
+            result = subprocess.run(
+                [
+                    "gh",
+                    "api",
+                    f"repos/{self.repo_full}/commits/{commit_sha}",
+                    "--jq",
+                    ".commit.committer.date",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+            return None
+        except (subprocess.TimeoutExpired, Exception):
+            return None
 
     def _get_compare_status(
         self, branch_name: str

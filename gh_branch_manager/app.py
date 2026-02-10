@@ -1,6 +1,7 @@
 """Main Textual TUI application for GitHub branch management."""
 
-from typing import List, Tuple
+from datetime import datetime, timezone
+from typing import List, Optional, Tuple
 
 from rich.text import Text
 from textual import on, work
@@ -166,7 +167,7 @@ class BranchManagerApp(App):
         self.branches_data = []
         self.branches_dict = {}  # Map branch names to indices for fast lookup
         self.filter_text = ""
-        self.sort_mode = "name"  # name, status, or merged
+        self.sort_mode = "name"  # name, status, merged, or updated
         self._loading = False
 
     def _progress_status_update(self, message: str) -> None:
@@ -190,7 +191,7 @@ class BranchManagerApp(App):
         # Set up the table
         table = self.query_one("#branch-table", DataTable)
         table.cursor_type = "row"
-        table.add_columns("Sel", "Branch Name", "Status", "Info")
+        table.add_columns("Sel", "Branch Name", "Status", "Info", "Last Updated")
 
         # Focus the table by default
         table.focus()
@@ -333,6 +334,12 @@ class BranchManagerApp(App):
             )
         elif self.sort_mode == "merged":
             filtered_branches.sort(key=lambda b: (not b.is_merged, b.name))
+        elif self.sort_mode == "updated":
+            # Sort by last updated time, most recent first (None values last)
+            filtered_branches.sort(
+                key=lambda b: (b.last_commit_date is None, b.last_commit_date or ""),
+                reverse=True,
+            )
 
         target_row_idx = None
         for idx, branch in enumerate(filtered_branches):
@@ -367,8 +374,13 @@ class BranchManagerApp(App):
 
             info = ", ".join(info_parts) if info_parts else ""
 
+            # Format last updated time
+            last_updated = self._format_timestamp(branch.last_commit_date)
+
             # Add row
-            row_key = table.add_row(sel, name, status_text, info, key=branch.name)
+            row_key = table.add_row(
+                sel, name, status_text, info, last_updated, key=branch.name
+            )
 
             # Track the row index for the current branch
             if current_branch_name and branch.name == current_branch_name:
@@ -416,6 +428,54 @@ class BranchManagerApp(App):
             return Text(status_str, style="dim italic")
         else:
             return Text(status_str, style="dim")
+
+    def _format_timestamp(self, timestamp: Optional[str]) -> str:
+        """Format ISO 8601 timestamp to relative or absolute time.
+
+        Args:
+            timestamp: ISO 8601 timestamp string or None
+
+        Returns:
+            Formatted time string
+        """
+        if not timestamp:
+            return ""
+
+        try:
+            # Parse ISO 8601 timestamp
+            dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            now = datetime.now(timezone.utc)
+            delta = now - dt
+
+            # Show relative time for recent commits
+            if delta.days == 0:
+                hours = delta.seconds // 3600
+                minutes = (delta.seconds % 3600) // 60
+                if hours == 0:
+                    if minutes == 0:
+                        return "just now"
+                    return f"{minutes}m ago"
+                return f"{hours}h ago"
+            elif delta.days == 1:
+                return "yesterday"
+            elif delta.days < 7:
+                return f"{delta.days}d ago"
+            elif delta.days < 30:
+                weeks = delta.days // 7
+                return f"{weeks}w ago"
+            elif delta.days < 365:
+                months = delta.days // 30
+                return f"{months}mo ago"
+            else:
+                years = delta.days // 365
+                return f"{years}y ago"
+        except Exception:
+            # Fallback to just showing the date
+            try:
+                dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                return dt.strftime("%Y-%m-%d")
+            except Exception:
+                return ""
 
     def action_toggle_selection(self) -> None:
         """Toggle selection of the current branch."""
@@ -521,7 +581,7 @@ class BranchManagerApp(App):
 
     def action_cycle_sort(self) -> None:
         """Cycle through sort modes."""
-        sort_modes = ["name", "status", "merged"]
+        sort_modes = ["name", "status", "merged", "updated"]
         current_idx = sort_modes.index(self.sort_mode)
         self.sort_mode = sort_modes[(current_idx + 1) % len(sort_modes)]
         self._update_table()
